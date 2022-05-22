@@ -26,6 +26,7 @@ import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.tests.util.LuceneTestCase;
+import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOUtils;
 
 public class TestAssertingLeafReader extends LuceneTestCase {
@@ -40,6 +41,11 @@ public class TestAssertingLeafReader extends LuceneTestCase {
     Document doc = new Document();
     doc.add(newStringField("id", "0", Field.Store.NO));
     w.addDocument(doc);
+
+    Document docTest = new Document();
+    docTest.add(newStringField("id", "1", Field.Store.NO));
+    docTest.add(newStringField("name", "rudy", Field.Store.NO));
+    w.addDocument(docTest);
     w.commit();
 
     w.deleteDocuments(new Term("id", "0"));
@@ -48,9 +54,10 @@ public class TestAssertingLeafReader extends LuceneTestCase {
     // Now we have index with 1 segment with 2 docs one of which is marked deleted
 
     IndexReader r = DirectoryReader.open(dir);
+   // r.getDocCount()
     assertEquals(1, r.leaves().size());
-    assertEquals(2, r.maxDoc());
-    assertEquals(1, r.numDocs());
+    assertEquals(3, r.maxDoc());
+    assertEquals(2, r.numDocs());
 
     r = new AssertingDirectoryReader((DirectoryReader) r);
     final IndexReader r2 = r;
@@ -60,7 +67,17 @@ public class TestAssertingLeafReader extends LuceneTestCase {
           @Override
           public void run() {
             for (LeafReaderContext context : r2.leaves()) {
-              context.reader().getLiveDocs().get(0);
+              Bits bits = context.reader().getLiveDocs();
+              for(int i = 0; i < bits.length(); i++) {
+                if (bits.get(i)) {
+                  try {
+                    Document doc = context.reader().document(i);
+                    System.out.println("doc:" + doc);
+                  } catch (Throwable e) {
+                    e.printStackTrace();
+                  }
+                }
+              }
             }
           }
         };
